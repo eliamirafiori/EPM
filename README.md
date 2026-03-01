@@ -1,6 +1,6 @@
 # Project: Parallel Electrostatic Potential Map (Direct Coulomb Summation)
 
-[cover](doc/cover.png)
+![cover](doc/cover.png)
 
 ## Overview
 
