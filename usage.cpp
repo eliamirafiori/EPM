@@ -11,17 +11,18 @@ void calculate_z_slice(
     const int z,        // What z slice we are calculating
     const Particle* ps, // Particles of the system
     const int n)        // Number of particles
-{ 
+{
 }
 
 int main() {
     
-    const int W = 64;
-    const int H = 64;
-    const int D = 64;
+    const int N = 50000;
+    const int W = 128;
+    const int H = 128;
+    const int D = 128;
 
     // Create 10.000 particles in a 64x64x64 space
-    const Particle* particles = epm_create_particles(10000, W, H, D);
+    const Particle* particles = epm_create_particles(N, W, H, D);
     
     // Create two potential maps slices of size 64x64 initialized to zero
     float* pmapA = epm_create_pmap_zeroed(W, H);
@@ -29,7 +30,7 @@ int main() {
     
     // Calculate the potential map slice at z=32
     const int Z = 32;
-    calculate_z_slice(pmapA, W, H, Z, particles, 10000);
+    calculate_z_slice(pmapA, W, H, Z, particles, N);
 
     // Check if the potential maps are approximately equal
     if (epm_check_pmap_slices(pmapA, pmapB, W, H)) {

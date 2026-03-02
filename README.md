@@ -31,7 +31,7 @@ This must be evaluated at every grid point in a 3D lattice, giving a total opera
 
 ### Realistic scale
 
-A 64×64×64 grid (~260K points) with 1,000–10,000 atoms is large enough to show meaningful GPU speedup but small enough to run quickly during development. For the cutoff extension, bumping to 128×128×128 with 50,000+ atoms makes the scalability advantage of binning clearly visible.
+A 64×64×64 grid (~260K points) with 1,000–10,000 atoms is large enough to show meaningful GPU speedup but small enough to run quickly during development. You should also test larger datasets, for example 128×128×128 with 50,000+ particles.
 
 ## Algorithm
 
