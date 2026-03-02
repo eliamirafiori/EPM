@@ -21,7 +21,7 @@ const Particle* epm_create_particles(int N, int W, int H, int D);
 //
 // Returns a pointer to the potential map array.
 //
-float* epm_create_pmap(int W, int H);
+float* epm_create_pmap_zeroed(int W, int H);
 
 // Check if two potential maps are approximately equal within a certain tolerance.
 //
@@ -55,7 +55,7 @@ const Particle* epm_create_particles(int N, int W, int H, int D) {
     return particles;
 }
 
-float* epm_create_pmap(int W, int H) {
+float* epm_create_pmap_zeroed(int W, int H) {
     float* pmap = new float[W * H];
     std::fill(pmap, pmap + W * H, 0.0f);
     return pmap;
