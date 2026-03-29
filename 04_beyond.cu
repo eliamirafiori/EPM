@@ -96,10 +96,6 @@ int main() {
     cudaStreamCreate(&streamA);
     cudaStreamCreate(&streamB);
 
-    // Create CUDA event
-    cudaEvent_t particlesReady;
-    cudaEventCreate(&particlesReady);
-
     // Create 10.000 particles in a 64x64x64 space
     const Particle* h_particles = epm_create_particles(N, W, H, D);
     Particle* d_particles;
@@ -124,13 +120,8 @@ int main() {
 
     // Grouping all uploads
     cudaMemcpyAsync(d_particles, h_particles, N * sizeof(Particle), cudaMemcpyHostToDevice, streamP);
-    cudaEventRecord(particlesReady, streamP);
     cudaMemcpyAsync(d_pmapA, h_pmapA, bytes, cudaMemcpyHostToDevice, streamA);
     cudaMemcpyAsync(d_pmapB, h_pmapB, bytes, cudaMemcpyHostToDevice, streamB);
-
-    // Sync: Make the COMPUTE streams wait for the PARTICLE stream
-    cudaStreamWaitEvent(streamA, particlesReady, 0);
-    cudaStreamWaitEvent(streamB, particlesReady, 0);
 
     // Calculate the potential map slice at z=32
     const int Z = 32;
