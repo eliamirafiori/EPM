@@ -1,6 +1,9 @@
 
 #define EPM_IMPLEMENTATION
+#define PPROG_IMPLEMENTATION
 #include "external/epm.hpp"
+
+#include <timer.cuh>
 
 #include <cstdio>
 
@@ -47,9 +50,15 @@ int main() {
     float* pmapA = epm_create_pmap_zeroed(W, H);
     float* pmapB = epm_create_pmap_zeroed(W, H);
     
+    auto timer_cpu = timerCPU{};
+    timer_cpu.start();
+
     // Calculate the potential map slice at z=32
     const int Z = 32;
     calculate_z_slice(pmapA, W, H, Z, particles, N);
+    calculate_z_slice(pmapB, W, H, Z, particles, N);
+
+    timer_cpu.stop();
 
     // Check if the potential maps are approximately equal
     if (epm_check_pmap_slices(pmapA, pmapB, W, H)) {
@@ -62,6 +71,9 @@ int main() {
             }
         }
     }
+    
+    auto cpu_sequential_ms = timer_cpu.elapsed_ms();
+    printf("EPM CPU SEQUENTIAL:\n\t%f ms\n", cpu_sequential_ms);
 
     delete[] particles;
     delete[] pmapA;
