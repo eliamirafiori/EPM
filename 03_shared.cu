@@ -10,7 +10,8 @@
 // CONFIGURATION
 #define TILE_SIZE 16
 
-__global__ void calculate_z_slice(
+
+__global__ void calculate_z_slice_shared(
     float* pmap,        // The potential map slice (width x height) 
     const int width,    // Width of the slice
     const int height,   // Height of the slice
@@ -18,24 +19,50 @@ __global__ void calculate_z_slice(
     const Particle* ps, // Particles of the system
     const int n         // Number of particles
 ) {
-    int row = blockIdx.y * blockDim.y + threadIdx.y;  // Row in the output matrix
-    int col = blockIdx.x * blockDim.x + threadIdx.x;  // Column in the output matrix
+    // Declare shared memory for a tile of particles
+    __shared__ Particle s_particles[TILE_SIZE * TILE_SIZE];
 
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
     float result = 0.0f;
 
-    // Iterate over all particles
-    for (int i = 0; i < n; i++) {
+    // Loop over particles in chunks (tiles)
+    int num_tiles = (n + (TILE_SIZE * TILE_SIZE) - 1) / (TILE_SIZE * TILE_SIZE);
+    
+    for (int t = 0; t < num_tiles; t++) {
+        // Collaborative Load: Each thread loads ONE particle into shared memory
+        int thread_id = threadIdx.y * blockDim.x + threadIdx.x;
+        int particle_idx = t * (blockDim.x * blockDim.y) + thread_id;
 
-        float dx = (float)col - ps[i].x;
-        float dy = (float)row - ps[i].y;
-        float dz = (float)z - ps[i].z;
+        if (particle_idx < n) {
+            s_particles[thread_id] = ps[particle_idx];
+        }
+        
+        // SYNC: Wait until the whole block has finished loading the tile
+        __syncthreads();
 
-        float d = (dx*dx + dy*dy + dz*dz);
-        result += ps[i].q / d;
+        // Compute using shared memory instead of global memory
+        int particles_in_this_tile = min((int)(blockDim.x * blockDim.y), n - t * (int)(blockDim.x * blockDim.y));
+        
+        for (int i = 0; i < particles_in_this_tile; i++) {
+            float dx = (float)col - s_particles[i].x;
+            float dy = (float)row - s_particles[i].y;
+            float dz = (float)z - s_particles[i].z;
+
+            // Adding a small epsilon to avoid division by zero if particle is exactly at (col, row, z)
+            float d2 = (dx*dx + dy*dy + dz*dz) + 1e-9f;
+            result += s_particles[i].q / d2;
+        }
+
+        // SYNC: Wait for everyone to finish computing before loading the next tile
+        __syncthreads();
     }
 
-    pmap[width * row + col] = result;
-} 
+    // Write result back to global memory
+    if (row < height && col < width) {
+        pmap[width * row + col] = result;
+    }
+}
 
 int main() {
     const int N = 10000;
@@ -88,8 +115,8 @@ int main() {
 
     // Calculate the potential map slice at z=32
     const int Z = 32;
-    calculate_z_slice<<<blocks, threads>>>(d_pmapA, W, H, Z, d_particles, N);
-    calculate_z_slice<<<blocks, threads>>>(d_pmapB, W, H, Z, d_particles, N);
+    calculate_z_slice_shared<<<blocks, threads>>>(d_pmapA, W, H, Z, d_particles, N);
+    calculate_z_slice_shared<<<blocks, threads>>>(d_pmapB, W, H, Z, d_particles, N);
 
     timer_gpu.stop();
 

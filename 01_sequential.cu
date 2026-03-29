@@ -38,10 +38,10 @@ void calculate_z_slice(
 } 
 
 int main() {
-    const int N = 1000;
-    const int W = 64;
-    const int H = 64;
-    const int D = 64;
+    const int N = 10000;
+    const int W = 128;
+    const int H = 128;
+    const int D = 128;
 
     // Create 10.000 particles in a 64x64x64 space
     const Particle* particles = epm_create_particles(N, W, H, D);
