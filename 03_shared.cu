@@ -49,8 +49,8 @@ __global__ void calculate_z_slice_shared(
             float dz = (float)z - s_particles[i].z;
 
             // Adding a small epsilon to avoid division by zero if particle is exactly at (col, row, z)
-            float d2 = (dx*dx + dy*dy + dz*dz) + 1e-9f;
-            result += s_particles[i].q / d2;
+            float d = (dx*dx + dy*dy + dz*dz) + 1e-9f;
+            result += s_particles[i].q / d;
         }
 
         // SYNC: Wait for everyone to finish computing before loading the next tile
