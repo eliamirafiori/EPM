@@ -10,7 +10,6 @@
 // CONFIGURATION
 #define TILE_SIZE 16
 
-
 __global__ void calculate_z_slice_shared(
     float* pmap,        // The potential map slice (width x height) 
     const int width,    // Width of the slice
