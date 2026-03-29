@@ -38,10 +38,13 @@ void calculate_z_slice(
 } 
 
 int main() {
-    const int N = 10000;
-    const int W = 128;
-    const int H = 128;
-    const int D = 128;
+    const int N = 50000;
+    const int W = 256;
+    const int H = 256;
+    const int D = 256;
+    
+    auto timer_cpu = timerCPU{};
+    timer_cpu.start();
 
     // Create 10.000 particles in a 64x64x64 space
     const Particle* particles = epm_create_particles(N, W, H, D);
@@ -49,9 +52,6 @@ int main() {
     // Create two potential maps slices of size 64x64 initialized to zero
     float* pmapA = epm_create_pmap_zeroed(W, H);
     float* pmapB = epm_create_pmap_zeroed(W, H);
-    
-    auto timer_cpu = timerCPU{};
-    timer_cpu.start();
 
     // Calculate the potential map slice at z=32
     const int Z = 32;

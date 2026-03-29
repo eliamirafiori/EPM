@@ -119,14 +119,6 @@ The bonus is evaluated on correctness of the binning implementation, accuracy of
 
 ## Instructions
 
-### Sequential version
-
 ```bash
-g++ 01_sequential.cpp -o 01_sequential
-```
-
-### Naive parallel version
-
-```bash
-nvcc -w -std=c++11 -arch=sm_62 ./02_naive.cu -I./external -o 02_naive
+make run
 ```

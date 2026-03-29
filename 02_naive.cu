@@ -8,7 +8,7 @@
 #include <cstdio>
 
 // CONFIGURATION
-#define TILE_SIZE 16
+#define TILE_SIZE 32
 
 __global__ void calculate_z_slice(
     float* pmap,        // The potential map slice (width x height) 
@@ -38,10 +38,13 @@ __global__ void calculate_z_slice(
 } 
 
 int main() {
-    const int N = 10000;
-    const int W = 128;
-    const int H = 128;
-    const int D = 128;
+    const int N = 50000;
+    const int W = 256;
+    const int H = 256;
+    const int D = 256;
+    
+    auto timer_gpu = timerGPU{};
+    timer_gpu.start();
 
     // Define dimensions
     int size = W * H;
@@ -82,20 +85,17 @@ int main() {
         printf("CUDA Error: %s\n", cudaGetErrorString(err));
     }
     cudaMemcpy(d_pmapB, h_pmapB, bytes, cudaMemcpyHostToDevice);
-    
-    auto timer_gpu = timerGPU{};
-    timer_gpu.start();
 
     // Calculate the potential map slice at z=32
     const int Z = 32;
     calculate_z_slice<<<blocks, threads>>>(d_pmapA, W, H, Z, d_particles, N);
     calculate_z_slice<<<blocks, threads>>>(d_pmapB, W, H, Z, d_particles, N);
 
-    timer_gpu.stop();
-
     // Move result matrices to CPU memory
     cudaMemcpy(h_pmapA, d_pmapA, bytes, cudaMemcpyDeviceToHost);
     cudaMemcpy(h_pmapB, d_pmapB, bytes, cudaMemcpyDeviceToHost);
+
+    timer_gpu.stop();
 
     // Check if the potential maps are approximately equal
     if (epm_check_pmap_slices(h_pmapA, h_pmapB, W, H)) {

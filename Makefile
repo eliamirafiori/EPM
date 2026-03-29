@@ -2,6 +2,7 @@ build:
 	nvcc -arch=compute_75 --std=c++11 01_sequential.cu -Iinclude -Iexternal -o 01_sequential
 	nvcc -arch=compute_75 --std=c++11 02_naive.cu -Iinclude -Iexternal -o 02_naive
 	nvcc -arch=compute_75 --std=c++11 03_shared.cu -Iinclude -Iexternal -o 03_shared
+	nvcc -arch=compute_75 --std=c++11 04_beyond.cu -Iinclude -Iexternal -o 04_beyond
 
 info:
 	echo "--- CPU ---";
@@ -16,3 +17,4 @@ run: build
 	./01_sequential
 	./02_naive
 	./03_shared
+	./04_beyond

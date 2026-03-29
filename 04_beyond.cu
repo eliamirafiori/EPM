@@ -10,6 +10,9 @@
 // CONFIGURATION
 #define TILE_SIZE 32
 
+// Set to 1 to use CUTOFF
+#define USE_CUTOFF 1
+
 __global__ void calculate_z_slice(
     float* pmap,        // The potential map slice (width x height) 
     const int width,    // Width of the slice
@@ -50,7 +53,7 @@ __global__ void calculate_z_slice(
 
             // Adding a small epsilon to avoid division by zero if particle is exactly at (col, row, z)
             float d = (dx*dx + dy*dy + dz*dz) + 1e-9f;
-            result += s_particles[i].q / d;
+            result += s_particles[i].q * __frcp_rn(d);
         }
 
         // SYNC: Wait for everyone to finish computing before loading the next tile
@@ -87,12 +90,21 @@ int main() {
         ((W) + TILE_SIZE - 1) / TILE_SIZE,
         ((H) + TILE_SIZE - 1) / TILE_SIZE); // (64/16, 64/16, 1) -> (4, 4, 1)
 
+    // Create CUDA streams
+    cudaStream_t streamP, streamA, streamB;
+    cudaStreamCreate(&streamP);
+    cudaStreamCreate(&streamA);
+    cudaStreamCreate(&streamB);
+
+    // Create CUDA event
+    cudaEvent_t particlesReady;
+    cudaEventCreate(&particlesReady);
+
     // Create 10.000 particles in a 64x64x64 space
     const Particle* h_particles = epm_create_particles(N, W, H, D);
     Particle* d_particles;
     cudaMalloc((void**)&d_particles, N * sizeof(Particle));
-    cudaMemcpy(d_particles, h_particles, N * sizeof(Particle), cudaMemcpyHostToDevice);
-    
+
     // Create two potential maps slices of size 64x64 initialized to zero
     float* h_pmapA = epm_create_pmap_zeroed(W, H);
     float* h_pmapB = epm_create_pmap_zeroed(W, H);
@@ -103,24 +115,38 @@ int main() {
     if (err != cudaSuccess) {
         printf("CUDA Error: %s\n", cudaGetErrorString(err));
     }
-    cudaMemcpy(d_pmapA, h_pmapA, bytes, cudaMemcpyHostToDevice);
 
     float* d_pmapB;
     err = cudaMalloc((void**)&d_pmapB, bytes);
     if (err != cudaSuccess) {
         printf("CUDA Error: %s\n", cudaGetErrorString(err));
     }
-    cudaMemcpy(d_pmapB, h_pmapB, bytes, cudaMemcpyHostToDevice);
+
+    // Grouping all uploads
+    cudaMemcpyAsync(d_particles, h_particles, N * sizeof(Particle), cudaMemcpyHostToDevice, streamP);
+    cudaEventRecord(particlesReady, streamP);
+    cudaMemcpyAsync(d_pmapA, h_pmapA, bytes, cudaMemcpyHostToDevice, streamA);
+    cudaMemcpyAsync(d_pmapB, h_pmapB, bytes, cudaMemcpyHostToDevice, streamB);
+
+    // Sync: Make the COMPUTE streams wait for the PARTICLE stream
+    cudaStreamWaitEvent(streamA, particlesReady, 0);
+    cudaStreamWaitEvent(streamB, particlesReady, 0);
 
     // Calculate the potential map slice at z=32
     const int Z = 32;
-    calculate_z_slice<<<blocks, threads>>>(d_pmapA, W, H, Z, d_particles, N);
-    calculate_z_slice<<<blocks, threads>>>(d_pmapB, W, H, Z, d_particles, N);
+    calculate_z_slice<<<blocks, threads, 0, streamA>>>(d_pmapA, W, H, Z, d_particles, N);
+    calculate_z_slice<<<blocks, threads, 0, streamB>>>(d_pmapB, W, H, Z, d_particles, N);
 
     // Move result matrices to CPU memory
-    cudaMemcpy(h_pmapA, d_pmapA, bytes, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_pmapB, d_pmapB, bytes, cudaMemcpyDeviceToHost);
+    // Grouping all downloads
+    cudaMemcpyAsync(h_pmapA, d_pmapA, bytes, cudaMemcpyDeviceToHost, streamA);
+    cudaMemcpyAsync(h_pmapB, d_pmapB, bytes, cudaMemcpyDeviceToHost, streamB);
 
+    // Gouping all synchronizations
+    cudaStreamSynchronize(streamP);
+    cudaStreamSynchronize(streamA);
+    cudaStreamSynchronize(streamB);
+    
     timer_gpu.stop();
 
     // Check if the potential maps are approximately equal
@@ -136,14 +162,16 @@ int main() {
     }
 
     auto gpu_naive_ms = timer_gpu.elapsed_ms();
-    printf("EPM GPU SHARED:\n\t%f ms\n", gpu_naive_ms);
+    printf("EPM GPU BEYOND:\n\t%f ms\n", gpu_naive_ms);
 
-    // Free memory
-    delete[] h_particles;
-    delete[] h_pmapA;
-    delete[] h_pmapB;
+    // Clean up
+    cudaStreamDestroy(streamP);
+    cudaStreamDestroy(streamA);
+    cudaStreamDestroy(streamB);
+    
+    cudaFreeHost(h_pmapA);
+    cudaFreeHost(h_pmapB);
 
-    // Free cuda memory
     cudaFree(d_particles);
     cudaFree(d_pmapA);
     cudaFree(d_pmapB);
