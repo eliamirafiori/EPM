@@ -2,9 +2,11 @@
 
 ![cover](doc/cover.png)
 
-# RESULTS
+## STUDENT
 
-## Hardware Specifications
+[Elia Mirafiori VR537643](mailto:elia.mirafiori@studenti.univr.it)
+
+## HARDWARE SPECIFICATIONS
 
 ### CPU
 
