@@ -34,13 +34,13 @@
 
 ## PERFORMANCES
 
-| Implementation | Execution Time (ms) | Speedup (vs. CPU) | Efficiency Notes |
-| --- | --- | --- | --- |
-| 01 Sequential (CPU) | **31,925.71** | 1.0x | Baseline (Single-thread) |
-| 02 Naive (GPU) | 94.15 | 339.1x | Brute force parallelization |
-| 03 Shared (GPU) | 80.43 | 396.9x | Reduced Global Memory traffic |
-| 04 Beyond (GPU) | 75.40 | 423.4x | Optimized tiling/streams |
-| 05 Cutoff (GPU) | 14.36 | **2,223.8x** | Spatial binning & O(k) complexity |
+| Implementation      | Execution Time (ms) | Speedup (vs. CPU) | Efficiency Notes                  |
+| ------------------- | ------------------- | ----------------- | --------------------------------- |
+| 01 Sequential (CPU) | **31,925.71**       | 1.0x              | Baseline (Single-thread)          |
+| 02 Naive (GPU)      | 94.15               | 339.1x            | Brute force parallelization       |
+| 03 Shared (GPU)     | 80.43               | 396.9x            | Reduced Global Memory traffic     |
+| 04 Beyond (GPU)     | 75.40               | 423.4x            | Optimized tiling/streams          |
+| 05 Cutoff (GPU)     | 14.36               | **2,223.8x**      | Spatial binning & O(k) complexity |
 
 ## INSTRUCTIONS
 
