@@ -1,22 +1,21 @@
 
 #define EPM_IMPLEMENTATION
 #define PPROG_IMPLEMENTATION
-#include "external/epm.hpp"
-
+#include <cstdio>
 #include <timer.cuh>
 
-#include <cstdio>
+#include "external/epm.hpp"
 
 // CONFIGURATION
 #define TILE_SIZE 32
 
 __global__ void calculate_z_slice(
-    float* pmap,        // The potential map slice (width x height) 
-    const int width,    // Width of the slice
-    const int height,   // Height of the slice
-    const int z,        // What z slice we are calculating
-    const Particle* ps, // Particles of the system
-    const int n         // Number of particles
+    float* pmap,         // The potential map slice (width x height)
+    const int width,     // Width of the slice
+    const int height,    // Height of the slice
+    const int z,         // What z slice we are calculating
+    const Particle* ps,  // Particles of the system
+    const int n          // Number of particles
 ) {
     // Declare shared memory for a tile of particles
     __shared__ Particle s_particles[TILE_SIZE * TILE_SIZE];
@@ -27,7 +26,7 @@ __global__ void calculate_z_slice(
 
     // Loop over particles in chunks (tiles)
     int num_tiles = (n + (TILE_SIZE * TILE_SIZE) - 1) / (TILE_SIZE * TILE_SIZE);
-    
+
     for (int t = 0; t < num_tiles; t++) {
         // Collaborative Load: Each thread loads ONE particle into shared memory
         int thread_id = threadIdx.y * blockDim.x + threadIdx.x;
@@ -36,20 +35,20 @@ __global__ void calculate_z_slice(
         if (particle_idx < n) {
             s_particles[thread_id] = ps[particle_idx];
         }
-        
+
         // SYNC: Wait until the whole block has finished loading the tile
         __syncthreads();
 
         // Compute using shared memory instead of global memory
         int particles_in_this_tile = min((int)(blockDim.x * blockDim.y), n - t * (int)(blockDim.x * blockDim.y));
-        
+
         for (int i = 0; i < particles_in_this_tile; i++) {
             float dx = (float)col - s_particles[i].x;
             float dy = (float)row - s_particles[i].y;
             float dz = (float)z - s_particles[i].z;
 
             // Adding a small epsilon to avoid division by zero if particle is exactly at (col, row, z)
-            float d = (dx*dx + dy*dy + dz*dz) + 1e-9f;
+            float d = (dx * dx + dy * dy + dz * dz) + 1e-9f;
             result += s_particles[i].q / d;
         }
 
@@ -85,14 +84,14 @@ int main() {
     // We need enough tiles to cover the width and height
     dim3 blocks = dim3(
         ((W) + TILE_SIZE - 1) / TILE_SIZE,
-        ((H) + TILE_SIZE - 1) / TILE_SIZE); // (64/16, 64/16, 1) -> (4, 4, 1)
+        ((H) + TILE_SIZE - 1) / TILE_SIZE);  // (64/16, 64/16, 1) -> (4, 4, 1)
 
     // Create 10.000 particles in a 64x64x64 space
     const Particle* h_particles = epm_create_particles(N, W, H, D);
     Particle* d_particles;
     cudaMalloc((void**)&d_particles, N * sizeof(Particle));
     cudaMemcpy(d_particles, h_particles, N * sizeof(Particle), cudaMemcpyHostToDevice);
-    
+
     // Create two potential maps slices of size 64x64 initialized to zero
     float* h_pmapA = epm_create_pmap_zeroed(W, H);
     float* h_pmapB = epm_create_pmap_zeroed(W, H);
@@ -135,8 +134,7 @@ int main() {
         }
     }
 
-    auto gpu_naive_ms = timer_gpu.elapsed_ms();
-    printf("EPM GPU SHARED:\n\t%f ms\n", gpu_naive_ms);
+    printf("EPM GPU SHARED: %f ms\n\n", timer_gpu.elapsed_ms());
 
     // Free memory
     delete[] h_particles;

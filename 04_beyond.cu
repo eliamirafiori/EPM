@@ -152,8 +152,7 @@ int main() {
         }
     }
 
-    auto gpu_naive_ms = timer_gpu.elapsed_ms();
-    printf("EPM GPU BEYOND:\n\t%f ms\n", gpu_naive_ms);
+    printf("EPM GPU BEYOND: %f ms\n\n", timer_gpu.elapsed_ms());
 
     // Clean up
     cudaStreamDestroy(streamP);
