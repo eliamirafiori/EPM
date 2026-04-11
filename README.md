@@ -48,6 +48,104 @@
 make run
 ```
 
+## REPORT
+
+### 01 CPU SEQUENTIAL
+
+#### APPROACH
+
+Implementing a brute-force calculation using nested loops on a single CPU thread.
+
+#### ALGORITHM COMPLEXITY
+
+$O(W \times H \times N)$. For every grid point in the 256×256 slice, the code iterates through all 50,000 particles.
+
+#### KEY CHARACTERISTICS
+
+- **Execution**: Synchronous and serial.
+- **Bottleneck**: High arithmetic intensity and memory latency. The CPU must perform 256×256×50,000≈3.2 billion distance and potential calculations sequentially.
+
+#### BASELINE PERFORMANCE
+
+**31,925.71 ms**: This version is strictly compute-bound by the clock speed of a single core, serving as the reference point for all subsequent parallel optimizations.
+
+### 02 GPU NAIVE
+
+#### APPROACH
+
+Directly porting the sequential logic to the GPU by mapping each grid point (pixel) in the 2D potential map to an individual CUDA thread. The grid is partitioned into 2D blocks (tiles) of $32 \times 32$ threads.
+
+#### ALGORITHM COMPLEXITY
+
+$O(W \times H \times N)$. While the complexity is identical to the sequential version, the workload is distributed across thousands of GPU cores executing in parallel.
+
+#### KEY CHARACTERISTICS
+
+- **Execution**: Massively parallel. Each thread independently calculates the influence of all 50,000 particles on its assigned coordinate.
+- **Bottleneck**: **Global Memory Bandwidth**. Every thread in every block reads the entire particle array from global memory. Since particles are not cached in shared memory, this results in redundant and high-latency memory transactions.
+
+#### PERFORMANCE
+
+**94.15 ms**: A massive **339x speedup** over the CPU baseline. This demonstrates the GPU's superior ability to handle high arithmetic intensity despite the inefficient memory access pattern.
+
+### 03 GPU SHARED
+
+#### APPROACH
+
+Optimizing memory access by using **Shared Memory Tiling**. Instead of every thread reading particles from global memory individually, threads in a block collaboratively load a "tile" of particles into the on-chip shared memory. The computation is then performed using these local copies.
+
+#### ALGORITHM COMPLEXITY
+
+$O(W \times H \times N)$. The complexity remains unchanged, but the number of high-latency global memory fetches is reduced by a factor equal to the number of threads in the block (1024 in this case).
+
+#### KEY CHARACTERISTICS
+
+- **Execution**: Collaborative. Threads use `__syncthreads()` to coordinate the loading and processing of each particle tile.
+- **Bottleneck**: **Synchronized Overhead and Arithmetic Throughput**. While memory latency is largely mitigated, the performance is now limited by the speed of the floating-point units and the overhead of synchronization barriers between tiling steps.
+
+#### PERFORMANCE
+
+**80.43 ms**: An improvement of approximately **17%** over the Naive GPU version. This demonstrates the efficiency of utilizing the GPU's low-latency programmable cache to optimize memory-bound kernels.
+
+### 04 GPU BEYOND
+
+#### APPROACH
+
+Focusing on **Host-Side Optimization** and **Concurrency**. While the kernel retains the shared memory tiling from the previous version, the `main` function is overhauled to utilize **CUDA Streams**. This allows for the overlapping of data transfers (H2D and D2H) with kernel execution, and the simultaneous execution of multiple kernels. Additionally, the kernel uses the fast intrinsic function `__frcp_rn()` for reciprocal calculations.
+
+#### ALGORITHM COMPLEXITY
+
+$O(W \times H \times N)$. The theoretical complexity remains the same, but the "wall-clock" time is reduced by maximizing hardware utilization through asynchronous operations and instruction-level optimizations.
+
+#### KEY CHARACTERISTICS
+
+- **Execution**: Asynchronous and Overlapped. By using three independent streams (`streamP`, `streamA`, `streamB`), the GPU can upload particle data while simultaneously calculating potential map slices.
+- **Bottleneck**: **Arithmetic Pipelines**. With memory latency largely hidden by tiling and asynchronous streams, the performance bottleneck shifts almost entirely to the throughput of the GPU's floating-point arithmetic units.
+
+#### PERFORMANCE
+
+**75.40 ms**: An improvement of approximately **7%** over the standard Shared Memory version. This gain represents the "limit" of optimizing a brute-force approach, proving that further significant speedups require a fundamental change in the algorithm itself.
+
+### 05 GPU CUTOFF
+
+#### APPROACH
+
+Implementing **Cutoff Summation with Spatial Binning**. The simulation volume is divided into a 3D grid of "bins" with a side length equal to the `MAX_DIST`. Particles are pre-processed to find their respective bins, sorted to ensure spatial locality, and indexed via `cell_starts` and `cell_ends` arrays. The kernel then only calculates contributions from particles in the grid point's immediate $3 \times 3 \times 3$ bin neighborhood.
+
+#### ALGORITHM COMPLEXITY
+
+$O(W \times H \times k)$, where $k$ is the average number of particles within the 27 neighboring bins. This represents a fundamental shift from the global $O(N)$ search to a localized $O(1)$ search relative to the total particle count.
+
+#### KEY CHARACTERISTICS
+
+- **Execution**: Highly efficient and localized. By using `thrust::sort_by_key`, the particles are reordered in global memory, ensuring that neighboring threads access memory in a coalesced and cache-friendly manner.
+- **Preprocessing**: Includes a fixed overhead for binning and sorting. However, for large $N$, this overhead is negligible compared to the time saved during the potential calculation.
+- **Bottleneck**: **Preprocessing and Branch Divergence**. The primary costs are now the initial sorting phase and the conditional `if (dist_sq < cutoff_sq)` checks within the kernel.
+
+#### PERFORMANCE
+
+**14.36 ms**: An incredible **2,223x speedup** over the CPU baseline and a **5.2x speedup** over the best brute-force GPU version. This version demonstrates that algorithmic optimization (reducing the work done) is often far more powerful than hardware-level optimization alone.
+
 ## Overview
 
 The goal is to implement and progressively optimize the Direct Coulomb Summation (DCS) method for computing an electrostatic potential grid, showing how parallelization decisions affect performance.
