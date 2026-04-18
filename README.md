@@ -50,7 +50,7 @@ make run
 
 ## REPORT
 
-[PDF $\LaTeX$](./VR537643_report.pdf)
+[PDF $ \LaTeX\ $](./VR537643_report.pdf)
 
 ### 01 CPU SEQUENTIAL
 
