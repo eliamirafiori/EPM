@@ -50,7 +50,7 @@ make run
 
 ## REPORT
 
-[PDF $\text{L\kern-.2em\raisebox{.45ex}{\sc{a}}\kern-.14em T\kern-.13em\lowerbox{.5ex}{E}\kern-.11em X}$](./VR537643_report.pdf)
+[Report written in LaTeX](./VR537643_report.pdf)
 
 ### 01 CPU SEQUENTIAL
 
